@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    PORT = int(os.getenv('PORT'))
+
     CHANNEL_ACCESS_TOKEN = os.getenv('CHANNEL_ACCESS_TOKEN')
     CHANNEL_SECRET = os.getenv('CHANNEL_SECRET')
     MONGO_URI = os.getenv('MONGO_URI')

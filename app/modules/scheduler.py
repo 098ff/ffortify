@@ -1,9 +1,9 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from linebot.models import TextSendMessage
 from app.modules.line_api import line_bot_api
-from app.database import get_all_users
-from app.config import Config
-from app.utils import get_thai_time
+from app.setup.database import get_all_users
+from app.setup.config import Config
+from app.utils.date_time import get_thai_time
 
 scheduler = BackgroundScheduler(timezone="Asia/Bangkok")
 

@@ -2,7 +2,7 @@ from datetime import datetime
 from pymongo import MongoClient
 import bson.binary
 from bson.objectid import ObjectId
-from app.config import Config
+from .config import Config
 
 # เชื่อมต่อ Database
 client = MongoClient(Config.MONGO_URI)
