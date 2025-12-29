@@ -7,7 +7,7 @@ def get_main_menu_flex():
     
     return {
         "type": "bubble",
-        "hero": {"type": "image", "url": "https://images.unsplash.com/photo-1614680376593-902f74cf0d41?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", "size": "full", "aspectRatio": "20:13", "aspectMode": "cover"},
+        "hero": {"type": "image", "url": "https://i.postimg.cc/t4mCCS29/Gemini-Generated-Image-mouu6imouu6imouu.png", "size": "full", "aspectRatio": "20:13", "aspectMode": "cover"},
         "body": {
             "type": "box", "layout": "vertical",
             "contents": [
