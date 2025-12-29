@@ -16,3 +16,5 @@ class Config:
 
     MONTHLY_PRICE = 41.5  # ราคาต่อเดือน (บาท)
     ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID")
+
+    SLIP_TIMEOUT_HOURS = int(os.environ.get('SLIP_TIMEOUT_HOURS', 1))

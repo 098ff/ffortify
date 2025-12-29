@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from linebot.models import TextSendMessage
 from app.modules.line_api import line_bot_api
-from app.setup.database import get_all_users
+from app.setup.database import get_all_users, cleanup_expired_slips
 from app.setup.config import Config
 from app.utils.date_time import get_thai_time
 
@@ -38,4 +38,6 @@ def start_scheduler():
     scheduler.add_job(monthly_reminder, 'cron', day=13, hour=9, minute=0)
     # วันที่ 28 เวลา 18:00
     scheduler.add_job(month_end_check, 'cron', day=28, hour=18, minute=0)
+    # Delte expired temp slips every hour
+    scheduler.add_job(cleanup_expired_slips, 'interval', hours=1)
     scheduler.start()

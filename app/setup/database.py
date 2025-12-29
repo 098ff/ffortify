@@ -72,14 +72,6 @@ def update_user_payment(user_id, tx_id, new_due_date):
         }
     )
 
-def save_temp_slip_id(user_id, file_id):
-    """ฝาก ID รูปไว้ชั่วคราว"""
-    users_col.update_one(
-        {"user_id": user_id},
-        {"$set": {"temp_slip_id": file_id}},
-        upsert=True 
-    )
-
 # --- Transaction Functions ---
 
 def create_transaction(tx_id, user_id, amount, months, billing):
@@ -112,6 +104,17 @@ def reject_transaction(tx_id):
 
 # --- Slip (Image) Functions ---
 
+def save_temp_slip_id(user_id, file_id):
+    users_col.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "temp_slip_id": file_id,
+                "slip_uploaded_at": datetime.now() # บันทึกเวลาที่ส่งรูป
+            }
+        }
+    )
+
 def save_slip_image(file_stream, filename):
     file_bytes = file_stream.read()
     file_doc = {
@@ -127,3 +130,41 @@ def get_slip_image(file_id):
         return slips_col.find_one({"_id": ObjectId(file_id)})
     except:
         return None
+    
+def delete_file_from_storage(file_id):
+    """ฟังก์ชันช่วยลบไฟล์จริงออกจาก GridFS หรือ Disk"""
+    # ถ้าใช้ GridFS (ตามโค้ดเดิมน่าจะใช้ fs)
+    try:
+        from app.setup.database import fs # หรือ import fs มาจากที่ที่คุณประกาศไว้
+        fs.delete(file_id)
+    except Exception as e:
+        print(f"Error deleting file {file_id}: {e}")
+
+def cleanup_expired_slips():
+    """ค้นหาและลบสลิปที่ค้างไว้นานเกินกำหนด"""
+    timeout_hours = Config.SLIP_TIMEOUT_HOURS
+    # เวลาเส้นตาย = ตอนนี้ - 3 ชั่วโมง
+    cutoff_time = datetime.now() - timedelta(hours=timeout_hours)
+
+    # หา User ที่มี temp_slip_id และเวลาอัปโหลดเก่ากว่าเส้นตาย
+    expired_users = users_col.find({
+        "temp_slip_id": {"$exists": True},
+        "slip_uploaded_at": {"$lt": cutoff_time}
+    })
+
+    count = 0
+    for user in expired_users:
+        file_id = user.get('temp_slip_id')
+        if file_id:
+            # 1. ลบไฟล์จริง
+            delete_file_from_storage(file_id)
+            
+            # 2. ลบข้อมูลออกจาก User record
+            users_col.update_one(
+                {"_id": user["_id"]},
+                {"$unset": {"temp_slip_id": "", "slip_uploaded_at": ""}}
+            )
+            count += 1
+            
+    if count > 0:
+        print(f"🧹 Cleaned up {count} expired slips.")

@@ -2,7 +2,6 @@ import os
 import io
 import uuid
 from datetime import datetime, timedelta
-
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage, ImageMessage,
     FlexSendMessage, ImageSendMessage
@@ -44,7 +43,6 @@ def handle_text_message(event):
                     
                     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_msg.strip()))
             except Exception as e:
-                # print(e) # ปริ้นท์ error ดูได้ถ้าอยาก debug
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ คำสั่งผิด! ตัวอย่าง: #check ฝ้าย"))
             return
 
@@ -82,7 +80,6 @@ def handle_text_message(event):
 
             register_user(user_id, fname, lname, nname, tel, email)
             
-            # ปรับข้อความตอบกลับให้น่ารัก
             reply = (
                 f"✅ ลงทะเบียนสำเร็จ!\n"
                 f"ยินดีต้อนรับพี่ {nname} ({email})\n\n"
@@ -259,7 +256,10 @@ def _process_transfer_submission(event, msg, user_id):
             FlexSendMessage(alt_text="บิลแจ้งโอน", contents=flex_msg)
         ])
         
-        users_col.update_one({"user_id": user_id}, {"$unset": {"temp_slip_id": ""}})
+        users_col.update_one(
+            {"user_id": user_id}, 
+            {"$unset": {"temp_slip_id": "", "slip_uploaded_at": ""}}
+        )
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ น้องฝอยบันทึกข้อมูลเรียบร้อยค่ะ! รอแอดมินพี่ฝ้ายตรวจสอบนะคะ ⏳\n\nขอบคุณที่ใช้บริการค้าบ 🤓🫶🏼"))
 
     except ValueError as e:
