@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from app.utils.const import VALID_BANKS, MONTH_MAP, THAI_MONTHS
+from app.utils.const import MONTH_MAP, THAI_MONTHS
 from app.utils.date_time import parse_month_year
 
 def validate_billing_period(billing_str, expected_months):

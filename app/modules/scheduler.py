@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from linebot.models import TextSendMessage
 from app.modules.line_api import line_bot_api
-from app.setup.database import get_all_users
+from app.setup.database import get_all_users, cleanup_expired_slips
 from app.setup.config import Config
 from app.utils.date_time import get_thai_time
 
@@ -25,8 +25,9 @@ def month_end_check():
     unpaid_users = []
     
     for user in get_all_users():
-        if user.get('paid_until') and user['paid_until'] < now:
-            unpaid_users.append(user.get('name', 'Unknown'))
+        # ถ้า next_due_date น้อยกว่าตอนนี้ แปลว่าเลยกำหนดจ่ายแล้ว (ค้างชำระ)
+        if user.get('next_due_date') and user['next_due_date'] <= now:
+            unpaid_users.append(user.get('nickname', 'Unknown'))
             
     if unpaid_users:
         msg = "⚠️ สิ้นเดือนแล้ว! มียอดค้างชำระจาก:\n" + "\n".join(unpaid_users)
@@ -37,4 +38,6 @@ def start_scheduler():
     scheduler.add_job(monthly_reminder, 'cron', day=13, hour=9, minute=0)
     # วันที่ 28 เวลา 18:00
     scheduler.add_job(month_end_check, 'cron', day=28, hour=18, minute=0)
+    # Delte expired temp slips every hour
+    scheduler.add_job(cleanup_expired_slips, 'interval', hours=1)
     scheduler.start()

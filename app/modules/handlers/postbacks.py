@@ -4,7 +4,7 @@ from app.setup.database import (
     get_transaction, get_user, update_user_payment, 
     complete_transaction, reject_transaction
 )
-from app.utils.date_time import calculate_next_bill_date, THAI_MONTHS
+from app.utils.date_time import calculate_next_due_date_from_text, THAI_MONTHS
 
 @handler.add(PostbackEvent)
 def handle_postback(event):
@@ -33,15 +33,22 @@ def handle_postback(event):
 def _process_approve(event, tx_data, tx_id):
     user_id = tx_data['uid']
     months = int(tx_data['cnt_month'])
+    billing_txt = tx_data['billing'] 
 
-    user_record = get_user(user_id)
-    current_paid = user_record.get('paid_until') if user_record else None
+    new_due_date = calculate_next_due_date_from_text(billing_txt, months)
     
-    new_paid = calculate_next_bill_date(current_paid, months)
-    
-    update_user_payment(user_id, tx_id, new_paid)
+    if not new_due_date:
+        from app.utils.date_time import calculate_next_bill_date
+        user_record = get_user(user_id)
+        current_due = user_record.get('next_due_date') if user_record else None
+        new_due_date = calculate_next_bill_date(current_due, months)
+
+    update_user_payment(user_id, tx_id, new_due_date)
     complete_transaction(tx_id)
 
-    thai_date_str = f"13 {THAI_MONTHS[new_paid.month-1]} {new_paid.year+543-2500}"
-    line_bot_api.push_message(user_id, TextSendMessage(text=f"✅ แอดมินพี่ฝ้ายรับยอดแล้ว!\nรอบบิลถัดไป: {thai_date_str}"))
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"บันทึกยอดเรียบร้อย (บิลรอบถัดไป: {thai_date_str})"))
+    thai_year = new_due_date.year + 543
+    thai_month = THAI_MONTHS[new_due_date.month-1]
+    thai_date_str = f"13 {thai_month} {str(thai_year)[2:]}" 
+
+    line_bot_api.push_message(user_id, TextSendMessage(text=f"✅ แอดมินพี่ฝ้ายรับยอดแล้ว!\n(รอบบิลถัดไป: {thai_date_str})"))
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"บันทึกยอดเรียบร้อย (รอบบิลถัดไป: {thai_date_str})"))
