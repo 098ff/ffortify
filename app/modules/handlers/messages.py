@@ -37,11 +37,14 @@ def handle_text_message(event):
                 else:
                     reply_msg = f"🔎 ผลการค้นหา:\n\n"
                     for u in users:
-                        status = get_thai_month_year(u.get('paid_until'))
-                        reply_msg += f"- {u.get('first_name')} ({u.get('nickname')}) : ยอดชำระล่าสุด {status}\n"
-                    reply_msg.strip('\n')
-                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_msg))
-            except:
+                        next_due = u.get('next_due_date')
+                        status = get_thai_month_year(next_due) if next_due else "ยังไม่มีข้อมูล"
+
+                        reply_msg += f"- {u.get('first_name')} ({u.get('nickname')}) : บิลถัดไป {status}\n"
+                    
+                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_msg.strip()))
+            except Exception as e:
+                # print(e) # ปริ้นท์ error ดูได้ถ้าอยาก debug
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ คำสั่งผิด! ตัวอย่าง: #check ฝ้าย"))
             return
 
