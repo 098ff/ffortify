@@ -3,7 +3,7 @@ from app.setup.config import Config
 
 def get_main_menu_flex():
     text_message = quote("เริ่มจ่ายเงิน")
-    payment_url = f"https://line.me/R/oaMessage/{Config.LINE_BOT_BASIC_ID}/?text={text_message}"
+    payment_url = f"https://line.me/R/oaMessage/{Config.LINE_BOT_BASIC_ID}/?{text_message}"
     
     return {
         "type": "bubble",

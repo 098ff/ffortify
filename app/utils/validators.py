@@ -17,7 +17,7 @@ def validate_billing_period(billing_str, expected_months):
                 diff_months = ((end_y * 12) + end_m) - ((start_y * 12) + start_m) + 1
                 
                 if diff_months != expected_months:
-                    raise ValueError(f"⚠️ จำนวนเดือนไม่ตรงกัน!\nแจ้งจ่าย **{expected_months} เดือน**\nแต่นับช่วงเวลาได้ **{diff_months} เดือน**")
+                    raise ValueError(f"⚠️ จำนวนเดือนไม่ตรงกัน!\n\nแจ้งจ่าย **{expected_months} เดือน**\nแต่นับช่วงเวลาได้ **{diff_months} เดือน**")
                 return
 
     found_count = 0
@@ -25,11 +25,10 @@ def validate_billing_period(billing_str, expected_months):
         if m in billing_str: found_count += 1
     
     if expected_months > 1 and found_count == 1:
-         raise ValueError(f"⚠️ ข้อมูลไม่ชัดเจน!\nแจ้งจ่าย **{expected_months} เดือน** แต่ระบุมาแค่เดือนเดียว\n(ถ้าระบุเป็นช่วง ให้ใช้ขีดคั่น เช่น 'ม.ค. 68 - มี.ค. 68')")
+         raise ValueError(f"⚠️ ข้อมูลไม่ชัดเจน!\n\nแจ้งจ่าย **{expected_months} เดือน** แต่ระบุมาแค่เดือนเดียว\n\n(ถ้าระบุเป็นช่วง ให้ใช้ขีดคั่น เช่น 'ม.ค. 68 - มี.ค. 68')")
 
 def validate_slip_format(msg):
     """ตรวจสอบ Format ข้อความ #โอน (แบบแยกบรรทัด)"""
-    # แยกบรรทัด และลบ empty line ทิ้ง
     lines = [line.strip() for line in msg.split('\n') if line.strip()]
 
     # Format ที่คาดหวัง:
@@ -47,12 +46,12 @@ def validate_slip_format(msg):
     try: 
         amount = float(lines[2])
     except: 
-        raise ValueError("❌ 'จำนวนเงิน' ต้องเป็นตัวเลข (บรรทัดที่ 3)")
+        raise ValueError("❌ 'จำนวนเงิน' ต้องเป็นตัวเลข")
         
     try: 
         months_count = int(lines[3])
     except: 
-        raise ValueError("❌ 'จำนวนเดือน' ต้องเป็นตัวเลขจำนวนเต็ม (บรรทัดที่ 4)")
+        raise ValueError("❌ 'จำนวนเดือน' ต้องเป็นตัวเลขจำนวนเต็ม")
 
     billing_str = lines[4]
     

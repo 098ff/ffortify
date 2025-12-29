@@ -101,18 +101,16 @@ def handle_text_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=err_msg))
         return
 
-    # --- Gatekeeper ---
-    if not check_is_registered(user_id):
-        reply_txt = "⛔️ พี่ ๆ ลงทะเบียนกับน้องฝอยก่อนน้า\n\nรูปแบบการพิมพ์:\n#regis\n[ชื่อจริง] [นามสกุล]\n[ชื่อเล่น]\n[เบอร์]\n[เมล]"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_txt))
-        return
-
     # --- User Commands ---
     if msg.startswith("น้องฝอย"):
+        if not require_registration(user_id, event.reply_token): return
+        
         line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="เมนูหลัก", contents=get_main_menu_flex()))
         return
 
     if ("จ่ายเงิน" in msg) or ("ชำระเงิน" in msg):
+        if not require_registration(user_id, event.reply_token): return
+
         if is_group:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="พี่ ๆ สามารถเรียก \"น้องฝอย\" เพื่อกดปุ่มในเมนูทำรายการในแชทส่วนตัวนะคะ 🔒"))
         else:
@@ -120,15 +118,18 @@ def handle_text_message(event):
         return
 
     if "เช็คยอด" in msg:
+        if not require_registration(user_id, event.reply_token): return
+
         user_data = get_user(user_id)
         if not user_data or not user_data.get('paid_until'):
-             reply = "คุณยังไม่มีประวัติการชำระเงินค่ะ เริ่มจ่ายรอบแรกก่อนน้า"
+            nname = user_data.get('nickname', 'พี่ ๆ') if user_data else 'พี่ ๆ'
+            reply = f"พี่{nname}ยังไม่มีประวัติการชำระเงินเลย มาเริ่มจ่ายรอบแรกก่อนน้า"
         else:
             paid_until = user_data.get('paid_until')
             now = datetime.now()
             month_str = get_thai_month_year(paid_until)
             if paid_until > now:
-                reply = f"✅ สถานะ: ปกติ\n(ชำระถึงรอบ: {month_str})"
+                reply = f"✅ สถานะ: ปกติ\n(รอบบิลถัดไป: {month_str})"
             else:
                 reply = f"❌ ค้างชำระ!\n(ชำระล่าสุดถึงรอบ: {month_str})\nตอนนี้มียอดค้างชำระค่ะ"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
@@ -136,6 +137,8 @@ def handle_text_message(event):
 
     if msg.startswith("#โอน"):
         if is_group: return
+        if not require_registration(user_id, event.reply_token): return
+        
         _process_transfer_submission(event, msg, user_id)
 
 @handler.add(MessageEvent, message=ImageMessage)
@@ -255,3 +258,18 @@ def _process_transfer_submission(event, msg, user_id):
     except Exception as e:
         print(f"System Error: {e}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ระบบขัดข้อง ลองใหม่อีกครั้งนะคะ"))
+
+def require_registration(user_id, reply_token):
+    if not check_is_registered(user_id):
+        reply_txt = (
+            "⛔️ พี่ ๆ ลงทะเบียนกับน้องฝอยก่อนน้า\n\n"
+            "พิมพ์ตามรูปแบบนี้นะคับ:\n"
+            "#regis\n"
+            "[ชื่อจริง] [นามสกุล]\n"
+            "[ชื่อเล่น]\n"
+            "[เบอร์]\n"
+            "[เมล]"
+        )
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_txt))
+        return False # Not registered
+    return True # Registered

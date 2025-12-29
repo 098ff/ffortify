@@ -12,7 +12,7 @@ def monthly_reminder():
         try:
             line_bot_api.push_message(
                 Config.GROUP_ID_TO_ALERT,
-                TextSendMessage(text="📢 แจ้งเตือน: วันที่ 13 แล้ว อย่าลืมจ่ายค่า Spotify น้า")
+                TextSendMessage(text="📢 แจ้งเตือน: วันที่ 13 แล้ว พี่ ๆ อย่าลืมจ่ายค่า Spotify น้า")
             )
             print("Reminder sent.")
         except Exception as e:
