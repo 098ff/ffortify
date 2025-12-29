@@ -5,3 +5,4 @@ dnspython
 requests
 gunicorn
 python-dotenv
+APScheduler
