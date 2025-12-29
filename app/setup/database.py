@@ -80,16 +80,14 @@ def save_temp_slip_id(user_id, file_id):
 
 # --- Transaction Functions ---
 
-def create_transaction(tx_id, user_id, amount, months, billing_txt, bank, slip_datetime):
-    """สร้างรายการ (Lean Schema)"""
+def create_transaction(tx_id, user_id, amount, months, billing_txt):
+    """สร้างรายการ (Lean Schema - แบบลดรูป)"""
     data = {
         "_id": tx_id,
         "uid": user_id,          
         "amount": amount,
         "cnt_month": months,     
-        "billing_txt": billing_txt, 
-        "bank": bank,
-        "slip_datetime": slip_datetime,
+        "billing_txt": billing_txt,
         "status": "pending",     
         "created_at": datetime.now()
     }

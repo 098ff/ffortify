@@ -27,7 +27,7 @@ def handle_postback(event):
         _process_approve(event, transaction, tx_id)
     elif action == 'reject':
         reject_transaction(tx_id)
-        line_bot_api.push_message(transaction['uid'], TextSendMessage(text="❌ ยอดโอนถูกปฏิเสธ (ข้อมูลไม่ถูกต้อง) ทักแชทแอดมินได้เลยค่ะ"))
+        line_bot_api.push_message(transaction['uid'], TextSendMessage(text="❌ ยอดโอนถูกปฏิเสธ (ข้อมูลไม่ถูกต้อง) ทักแชทหาแอดมินพี่ฝ้ายได้เลยค่ะ!"))
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="กดปฏิเสธเรียบร้อย"))
 
 def _process_approve(event, tx_data, tx_id):
@@ -43,5 +43,5 @@ def _process_approve(event, tx_data, tx_id):
     complete_transaction(tx_id)
 
     thai_date_str = f"13 {THAI_MONTHS[new_paid.month-1]} {new_paid.year+543-2500}"
-    line_bot_api.push_message(user_id, TextSendMessage(text=f"✅ แอดมินรับยอดแล้ว!\nรอบบิลของคุณอัปเดตถึงวันที่: {thai_date_str}"))
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"บันทึกยอดเรียบร้อย (หมดอายุ {thai_date_str})"))
+    line_bot_api.push_message(user_id, TextSendMessage(text=f"✅ แอดมินพี่ฝ้ายรับยอดแล้ว!\nรอบบิลของคุณอัปเดตถึงวันที่: {thai_date_str}"))
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"บันทึกยอดเรียบร้อย (บิลอัปเดตถึงวันที่: {thai_date_str})"))

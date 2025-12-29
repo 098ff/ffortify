@@ -28,45 +28,40 @@ def validate_billing_period(billing_str, expected_months):
          raise ValueError(f"⚠️ ข้อมูลไม่ชัดเจน!\nแจ้งจ่าย **{expected_months} เดือน** แต่ระบุมาแค่เดือนเดียว\n(ถ้าระบุเป็นช่วง ให้ใช้ขีดคั่น เช่น 'ม.ค. 68 - มี.ค. 68')")
 
 def validate_slip_format(msg):
-    """ตรวจสอบ Format ข้อความ #โอน"""
-    parts = msg.split()
-    
-    bank_index = -1
-    found_bank = ""
-    for idx, part in enumerate(parts):
-        for v_bank in VALID_BANKS:
-            if part.lower() == v_bank.lower():
-                bank_index = idx
-                found_bank = v_bank
-                break
-        if bank_index != -1: break
-            
-    if bank_index == -1: raise ValueError(f"❌ ไม่พบชื่อธนาคารที่รองรับ (ต้องเป็น: {', '.join(VALID_BANKS)})")
-    if bank_index < 5: raise ValueError("❌ ข้อมูลไม่ครบถ้วน (กรุณาใส่ 'ช่วงเดือน' ด้วย)")
+    """ตรวจสอบ Format ข้อความ #โอน (แบบแยกบรรทัด)"""
+    # แยกบรรทัด และลบ empty line ทิ้ง
+    lines = [line.strip() for line in msg.split('\n') if line.strip()]
 
-    nickname = parts[1]
-    try: amount = float(parts[2])
-    except: raise ValueError("❌ 'จำนวนเงิน' ต้องเป็นตัวเลข")
-    try: months_count = int(parts[3])
-    except: raise ValueError("❌ 'จำนวนเดือน' ต้องเป็นตัวเลขจำนวนเต็ม")
-
-    billing_parts = parts[4:bank_index]
-    billing_str = " ".join(billing_parts)
+    # Format ที่คาดหวัง:
+    # 0: #โอน
+    # 1: ชื่อเล่น
+    # 2: จำนวนเงิน
+    # 3: จำนวนเดือน
+    # 4: ช่วงเดือน
     
+    if len(lines) < 5: 
+        raise ValueError("❌ ข้อมูลไม่ครบถ้วน! กรุณาพิมพ์แยกบรรทัดตามตัวอย่าง")
+
+    nickname = lines[1]
+    
+    try: 
+        amount = float(lines[2])
+    except: 
+        raise ValueError("❌ 'จำนวนเงิน' ต้องเป็นตัวเลข (บรรทัดที่ 3)")
+        
+    try: 
+        months_count = int(lines[3])
+    except: 
+        raise ValueError("❌ 'จำนวนเดือน' ต้องเป็นตัวเลขจำนวนเต็ม (บรรทัดที่ 4)")
+
+    billing_str = lines[4]
+    
+    # ตรวจสอบช่วงเดือน
     validate_billing_period(billing_str, months_count)
-
-    date_time_parts = parts[bank_index+1:]
-    if len(date_time_parts) != 4: raise ValueError("❌ รูปแบบวันเวลาไม่ถูกต้อง (ตัวอย่าง: 26 ม.ค. 68 10:30:00)")
-
-    day_str, month_str, year_str, time_str = date_time_parts
-    if month_str not in THAI_MONTHS: raise ValueError(f"❌ ตัวย่อเดือนไม่ถูกต้อง")
-    if not re.match(r"^\d{1,2}:\d{2}(:\d{2})?$", time_str): raise ValueError("❌ รูปแบบเวลาไม่ถูกต้อง")
 
     return {
         "nickname": nickname,
         "amount": amount,
         "months": months_count,
-        "billing": billing_str,
-        "bank": found_bank,
-        "datetime": f"{day_str} {month_str} {year_str} {time_str}"
+        "billing": billing_str
     }
