@@ -60,14 +60,16 @@ def find_users_by_nickname(nickname):
     regex_query = {"$regex": f"^{nickname}$", "$options": "i"}
     return list(users_col.find({"nickname": regex_query}))
 
-def update_user_payment(user_id, transaction_id, new_paid_until):
-    """อัปเดตวันหมดอายุ และ Transaction ID ล่าสุด"""
+def update_user_payment(user_id, tx_id, new_due_date):
+    """อัปเดตวันครบกำหนดชำระใหม่"""
     users_col.update_one(
-        {'user_id': user_id},
-        {'$set': {
-            'paid_until': new_paid_until,
-            'latest_txd': transaction_id 
-        }}
+        {"user_id": user_id},
+        {
+            "$set": {
+                "next_due_date": new_due_date,
+                "last_transaction_id": tx_id
+            }
+        }
     )
 
 def save_temp_slip_id(user_id, file_id):
@@ -80,14 +82,14 @@ def save_temp_slip_id(user_id, file_id):
 
 # --- Transaction Functions ---
 
-def create_transaction(tx_id, user_id, amount, months, billing_txt):
+def create_transaction(tx_id, user_id, amount, months, billing):
     """สร้างรายการ (Lean Schema - แบบลดรูป)"""
     data = {
         "_id": tx_id,
         "uid": user_id,          
         "amount": amount,
         "cnt_month": months,     
-        "billing_txt": billing_txt,
+        "billing": billing,
         "status": "pending",     
         "created_at": datetime.now()
     }

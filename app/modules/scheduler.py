@@ -25,8 +25,9 @@ def month_end_check():
     unpaid_users = []
     
     for user in get_all_users():
-        if user.get('paid_until') and user['paid_until'] < now:
-            unpaid_users.append(user.get('name', 'Unknown'))
+        # ถ้า next_due_date น้อยกว่าตอนนี้ แปลว่าเลยกำหนดจ่ายแล้ว (ค้างชำระ)
+        if user.get('next_due_date') and user['next_due_date'] <= now:
+            unpaid_users.append(user.get('nickname', 'Unknown'))
             
     if unpaid_users:
         msg = "⚠️ สิ้นเดือนแล้ว! มียอดค้างชำระจาก:\n" + "\n".join(unpaid_users)

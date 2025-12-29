@@ -1,7 +1,7 @@
 import os
 import io
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage, ImageMessage,
@@ -14,8 +14,7 @@ from app.setup.database import (
     check_nickname_available, create_transaction
 )
 from app.setup.config import Config
-from app.utils.const import VALID_BANKS
-from app.utils.date_time import get_thai_month_year, parse_month_year
+from app.utils.date_time import get_thai_month_year, parse_month_year, calculate_next_due_date_from_text
 from app.utils.validators import validate_slip_format
 from app.ui.flex_messages import get_main_menu_flex, create_admin_flex
 
@@ -121,17 +120,20 @@ def handle_text_message(event):
         if not require_registration(user_id, event.reply_token): return
 
         user_data = get_user(user_id)
-        if not user_data or not user_data.get('paid_until'):
+        next_due = user_data.get('next_due_date') 
+        
+        if not user_data or not next_due:
             nname = user_data.get('nickname', 'พี่ ๆ') if user_data else 'พี่ ๆ'
-            reply = f"พี่{nname}ยังไม่มีประวัติการชำระเงินเลย มาเริ่มจ่ายรอบแรกก่อนน้า"
+            reply = f"พี่{nname}ยังไม่มีกำหนดชำระรอบถัดไปเลย มาเริ่มจ่ายรอบแรกก่อนน้า"
         else:
-            paid_until = user_data.get('paid_until')
             now = datetime.now()
-            month_str = get_thai_month_year(paid_until)
-            if paid_until > now:
-                reply = f"✅ สถานะ: ปกติ\n(รอบบิลถัดไป: {month_str})"
+            month_str = get_thai_month_year(next_due)
+            
+            if next_due > now:
+                reply = f"✅ สถานะ: ปกติ\n(ครบกำหนดชำระรอบถัดไป: 13 {month_str})"
             else:
-                reply = f"❌ ค้างชำระ!\n(ชำระล่าสุดถึงรอบ: {month_str})\nตอนนี้มียอดค้างชำระค่ะ"
+                reply = f"❌ เลยกำหนดชำระแล้ว!\n(ต้องจ่ายรอบ: 13 {month_str})\nรีบเคลียร์ยอดน้า เดี๋ยวโดนตัดพรีเมี่ยม 🥺"
+        
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
         return
 
@@ -195,23 +197,27 @@ def _process_transfer_submission(event, msg, user_id):
         if data['nickname'].strip().lower() != registered_nickname.strip().lower():
             raise ValueError(f"❌ ชื่อเล่นไม่ถูกต้อง (ไม่ตรงกับที่ลงทะเบียนไว้)")
 
-        # Check Overlap
-        current_paid = user.get('paid_until')
-        if current_paid:
-            billing_start_str = data['billing'].split('-')[0].split('ถึง')[0].strip()
-            parsed_start = parse_month_year(billing_start_str)
+        current_next_due = user.get('next_due_date')
+        
+        if current_next_due:
+            # คำนวณว่า "ยอดใหม่" ที่ส่งมา จะมี Due Date วันไหน?
+            # เช่น ส่ง "ม.ค." (1 เดือน) -> Due Date คือ 13 ก.พ.
+            input_due_date = calculate_next_due_date_from_text(data['billing'], data['months'])
             
-            if parsed_start:
-                input_m, input_y = parsed_start
-                paid_m = current_paid.month
-                paid_y = current_paid.year
-                
-                input_code = input_y * 100 + input_m
-                paid_code = paid_y * 100 + paid_m
-                
-                if input_code <= paid_code:
-                    paid_str = get_thai_month_year(current_paid)
-                    raise ValueError(f"❌ ยอดนี้จ่ายซ้ำค่ะ!\nพี่จ่ายถึงเดือน **{paid_str}** แล้ว\n(เดือน {billing_start_str} อยู่ในระยะที่ครอบคลุมแล้ว)")
+            if input_due_date:
+                # ถ้า Due Date ของยอดใหม่ "น้อยกว่า หรือ เท่ากับ" Due Date ที่มีอยู่แล้ว
+                # แปลว่ายอดนี้เป็นอดีต หรือซ้ำกับที่จ่ายไปแล้ว
+                if input_due_date <= current_next_due:
+                    # คำนวณหาย้อนกลับไปว่าจ่ายถึงเดือนไหนแล้ว (Due Date - 1 เดือน)
+                    last_paid_month = current_next_due - timedelta(days=20) 
+                    paid_str = get_thai_month_year(last_paid_month)
+                    
+                    raise ValueError(
+                        f"❌ ยอดนี้จ่ายซ้ำค่ะ!\n\n"
+                        f"ข้อมูลล่าสุดพี่จ่ายถึงรอบเดือน **{paid_str}** แล้ว"
+                    )
+            else:
+                raise ValueError("❌ รูปแบบเดือนไม่ถูกต้อง (เช่น 'ม.ค. 68' หรือ 'ม.ค. 68 - มี.ค. 68')")
 
         # Check Pending Slip
         file_id = user.get('temp_slip_id')

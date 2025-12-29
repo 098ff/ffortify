@@ -18,7 +18,7 @@ def get_main_menu_flex():
         "footer": {
             "type": "box", "layout": "vertical", "spacing": "sm",
             "contents": [
-                {"type": "button", "style": "primary", "color": "#1DB954", "action": {"type": "uri", "label": "💸 ชำระเงิน", "uri": payment_url}},
+                {"type": "button", "style": "primary", "color": "#831FA4", "action": {"type": "uri", "label": "💸 ชำระเงิน", "uri": payment_url}},
                 {"type": "button", "style": "secondary", "action": {"type": "message", "label": "🔍 เช็คยอด", "text": "เช็คยอด"}}
             ]
         }
@@ -37,7 +37,7 @@ def create_admin_flex(name, amount, months, bill_month, tx_id):
                     "type": "text",
                     "text": "รายการโอนเงินใหม่",
                     "weight": "bold",
-                    "color": "#1DB446",
+                    "color": "#731B98",
                     "size": "sm"
                 },
                 {
@@ -129,6 +129,7 @@ def create_admin_flex(name, amount, months, bill_month, tx_id):
                 {
                     "type": "button",
                     "style": "primary",
+                    "color": "#831FA4",
                     "action": {
                         "type": "postback",
                         "label": "รับยอด",
