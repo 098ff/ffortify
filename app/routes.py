@@ -1,7 +1,7 @@
 from flask import Blueprint, request, abort, send_file
 from linebot.exceptions import InvalidSignatureError
 from app.modules.line_api import handler
-from app.database import get_slip_image
+from app.setup.database import get_slip_image
 import io
 # Import handlers เพื่อให้ decorator ทำงาน
 import app.modules.handlers 
