@@ -76,7 +76,7 @@
     * **Start Command:** `gunicorn --bind 0.0.0.0:$PORT app:app`
 4.  **Environment Variables:** Add all variables from your `.env` file to Render's "Environment" tab.
 5.  **Webhook:** Once deployed (Status: Live), copy the Render URL and update the Webhook URL in LINE Developers Console:
-    * `https://your-app-name.onrender.com/callback`
+    * `https://ffortify.onrender.com/callback`
 
 ---
 
