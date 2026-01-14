@@ -29,7 +29,7 @@
 
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/098ff/ffortify.git](https://github.com/098ff/ffortify.git)
+    git clone https://github.com/098ff/ffortify.git
     cd ffortify
     ```
 
