@@ -1,40 +1,43 @@
-from flask import Blueprint, request, abort, send_file
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import StreamingResponse
 from linebot.exceptions import InvalidSignatureError
 from app.modules.line_api import handler
 from app.setup.database import get_slip_image
 import io
-# Import handlers เพื่อให้ decorator ทำงาน
-import app.modules.handlers 
 
-bp = Blueprint('main', __name__)
+# import handlers เพื่อให้ decorator ของ LINE ทำงาน
+import app.modules.handlers
 
-@bp.route("/slip/<file_id>")
-def serve_slip(file_id):
-    # ดึงข้อมูลจาก MongoDB
+router = APIRouter()
+
+@router.get("/slip/{file_id}")
+async def serve_slip(file_id: str):
     file_doc = get_slip_image(file_id)
-    
+
     if not file_doc:
-        return "Image not found", 404
-        
-    # แปลง Binary กลับเป็นรูปภาพแล้วส่งออกไป
-    return send_file(
-        io.BytesIO(file_doc['data']),
-        mimetype='image/jpeg',
-        as_attachment=False,
-        download_name=file_doc['filename']
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return StreamingResponse(
+        io.BytesIO(file_doc["data"]),
+        media_type="image/jpeg",
+        headers={
+            "Content-Disposition": f'inline; filename="{file_doc["filename"]}"'
+        }
     )
 
-@bp.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers['X-Line-Signature']
-    body = request.get_data(as_text=True)
-    
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-    return 'OK'
+@router.post("/callback")
+async def callback(request: Request):
+    signature = request.headers.get("X-Line-Signature")
+    body = await request.body()
+    body_text = body.decode("utf-8")
 
-@bp.route("/")
-def home():
+    try:
+        handler.handle(body_text, signature)
+    except InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    return "OK"
+
+@router.get("/")
+async def home():
     return "Spotify Bot Modular Version is Running!"

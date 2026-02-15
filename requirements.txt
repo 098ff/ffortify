@@ -6,3 +6,4 @@ requests
 gunicorn
 python-dotenv
 APScheduler
+fastapi[standard]
