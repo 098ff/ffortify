@@ -15,12 +15,12 @@
 
 ## 🛠️ Tech Stack
 
-* **Language:** Python 3.13
-* **Framework:** Flask
+* **Language:** Python
+* **Framework:** FastAPI
 * **Database:** MongoDB (PyMongo)
 * **Messaging API:** LINE Bot SDK
 * **Deployment:** Render (Web Service)
-* **Server:** Gunicorn
+* **Server:** Gunicorn + UvicornWorker
 * **Scheduler:** APScheduler
 
 ---
@@ -73,7 +73,7 @@
 3.  **Settings:**
     * **Runtime:** Python 3
     * **Build Command:** `pip install -r requirements.txt`
-    * **Start Command:** `gunicorn --bind 0.0.0.0:$PORT app:app`
+    * **Start Command:** `gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
 4.  **Environment Variables:** Add all variables from your `.env` file to Render's "Environment" tab.
 5.  **Webhook:** Once deployed (Status: Live), copy the Render URL and update the Webhook URL in LINE Developers Console:
     * `https://ffortify.onrender.com/callback`
@@ -101,8 +101,8 @@ ffortify/
 │   │   ├── const.py
 │   │   ├── date_time.py
 │   │   └── validators.py
-│   ├── __init__.py          # Flask App Factory
-│   └── routes.py            # Webhook Endpoint (/callback)
+│   ├── main.py              # Define FastAPI
+│   └── routes.py            # FastAPI Routes (Webhook /callback, static endpoints)
 ├── .env                     # Environment Variables (Ignored)
 ├── .gitignore
 ├── requirements.txt         # Dependencies
