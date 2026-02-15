@@ -1,6 +1,6 @@
 # 🤖 ffortify (N'foii Bot) - LINE Payment Management Bot
 
-**N'foii (น้องฝอย)** is a LINE Chatbot developed using Python (Flask) designed to streamline membership management, verify payment slips, and automatically calculate next payment due dates.
+**N'foii (น้องฝอย)** is a LINE Chatbot developed using Python (FastAPI) designed to streamline membership management, verify payment slips, and automatically calculate next payment due dates.
 
 ## ✨ Key Features
 
@@ -20,7 +20,7 @@
 * **Database:** MongoDB (PyMongo)
 * **Messaging API:** LINE Bot SDK
 * **Deployment:** Render (Web Service)
-* **Server:** Gunicorn + UvicornWorker
+* **Server:** Uvicorn (ASGI server)
 * **Scheduler:** APScheduler
 
 ---
