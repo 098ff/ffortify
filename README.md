@@ -73,7 +73,7 @@
 3.  **Settings:**
     * **Runtime:** Python 3
     * **Build Command:** `pip install -r requirements.txt`
-    * **Start Command:** `gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
+    * **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 4.  **Environment Variables:** Add all variables from your `.env` file to Render's "Environment" tab.
 5.  **Webhook:** Once deployed (Status: Live), copy the Render URL and update the Webhook URL in LINE Developers Console:
     * `https://ffortify.onrender.com/callback`
