@@ -38,14 +38,6 @@ async def callback(request: Request):
 
     return "OK"
 
-@router.get("/")
+@router.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return "Spotify Bot Modular Version is Running!"
-
-@router.get("/health")
-def health():
-    return {"status": "ok"}
-
-@router.head("/health")
-def health_head():
-    return
