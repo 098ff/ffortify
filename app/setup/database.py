@@ -194,12 +194,28 @@ def soft_delete_transactions(user_id):
             "deleted_at": datetime.now()
         }}
     )
+    # Clear user's cached next_due_date so status updates immediately
+    users_col.update_one(
+        {"user_id": user_id},
+        {"$unset": {
+            "next_due_date": "",
+            "last_transaction_id": ""
+        }}
+    )
     return result.modified_count
 
 
 def hard_delete_transactions(user_id):
     """Hard Delete - permanently remove all transactions of a user from MongoDB"""
     result = transactions_col.delete_many({"uid": user_id})
+    # Clear user's cached next_due_date so status updates immediately
+    users_col.update_one(
+        {"user_id": user_id},
+        {"$unset": {
+            "next_due_date": "",
+            "last_transaction_id": ""
+        }}
+    )
     return result.deleted_count
 
 
