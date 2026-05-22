@@ -15,6 +15,7 @@ rich_menu_col = db["rich_menus"]
 # -----------------------------------------------
 # Rich Menu Image Paths (relative to project root)
 # -----------------------------------------------
+DEFAULT_MENU_IMAGE = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "default_rich_menu.png")
 MEMBER_MENU_IMAGE = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "member_rich_menu.png")
 ADMIN_MENU_IMAGE = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "admin_rich_menu.png")
 
@@ -32,6 +33,38 @@ HEADERS_IMAGE = {
 }
 
 LINE_API_BASE = "https://api.line.me/v2/bot"
+
+
+# -----------------------------------------------
+# Default Rich Menu Definition (2 areas)
+# Layout: [ลงทะเบียน] [คำสั่ง]
+# -----------------------------------------------
+DEFAULT_RICH_MENU = {
+    "size": {"width": 2500, "height": 843},
+    "selected": True,
+    "name": "Default Menu",
+    "chatBarText": "📝 เมนูเริ่มต้น",
+    "areas": [
+        {
+            "bounds": {"x": 0, "y": 0, "width": 1250, "height": 843},
+            "action": {
+                "type": "postback",
+                "label": "ลงทะเบียน",
+                "data": "action=start_registration",
+                "displayText": "📝 เริ่มการลงทะเบียน"
+            }
+        },
+        {
+            "bounds": {"x": 1250, "y": 0, "width": 1250, "height": 843},
+            "action": {
+                "type": "postback",
+                "label": "คำสั่ง",
+                "data": "action=default_help",
+                "displayText": "❓ วิธีใช้และคำสั่ง"
+            }
+        }
+    ]
+}
 
 
 # -----------------------------------------------
@@ -198,6 +231,52 @@ def _store_menu_id(role, rich_menu_id):
     )
 
 
+def _set_default_rich_menu(rich_menu_id):
+    """Set a Rich Menu as the global default for all users who don't have a linked menu"""
+    resp = requests.post(
+        f"{LINE_API_BASE}/user/all/richmenu/{rich_menu_id}",
+        headers=HEADERS
+    )
+    if resp.status_code == 200:
+        print(f"✅ Set global default Rich Menu to: {rich_menu_id}")
+        return True
+    else:
+        print(f"❌ Failed to set global default Rich Menu: {resp.status_code} {resp.text}")
+        return False
+
+
+def setup_default_rich_menu():
+    """Create and store the Default (Unregistered) Rich Menu (if not already existing)"""
+    existing_id = _get_stored_menu_id("default")
+    
+    # Verify existing menu is still valid on LINE's side
+    if existing_id:
+        check = requests.get(
+            f"{LINE_API_BASE}/richmenu/{existing_id}",
+            headers=HEADERS
+        )
+        if check.status_code == 200:
+            print("✅ Default Rich Menu already exists, skipping creation.")
+            # Ensure it is still set as the default menu on LINE
+            _set_default_rich_menu(existing_id)
+            return existing_id
+        else:
+            print("⚠️ Stored Default Rich Menu ID is stale, recreating...")
+    
+    menu_id = _create_rich_menu(DEFAULT_RICH_MENU)
+    if not menu_id:
+        return None
+    
+    if _upload_rich_menu_image(menu_id, DEFAULT_MENU_IMAGE):
+        _store_menu_id("default", menu_id)
+        _set_default_rich_menu(menu_id)
+        print(f"✅ Default Rich Menu created & set as global default: {menu_id}")
+        return menu_id
+    else:
+        _delete_rich_menu(menu_id)
+        return None
+
+
 def setup_member_rich_menu():
     """Create and store the Member Rich Menu (if not already existing)"""
     existing_id = _get_stored_menu_id("member")
@@ -284,13 +363,14 @@ def force_recreate_all():
     Force recreate all Rich Menus (deletes old ones first).
     Use this when menu layout or image changes.
     """
-    for role in ["member", "admin"]:
+    for role in ["default", "member", "admin"]:
         old_id = _get_stored_menu_id(role)
         if old_id:
             _delete_rich_menu(old_id)
             rich_menu_col.delete_one({"role": role})
             print(f"🗑️ Deleted old {role} Rich Menu: {old_id}")
 
+    setup_default_rich_menu()
     setup_member_rich_menu()
     setup_admin_rich_menu()
     link_admin_menu()
@@ -312,7 +392,7 @@ def force_recreate_all():
 
 # Bump this version when Rich Menu layout/areas/images change.
 # On startup, if the stored version doesn't match, menus are force-recreated.
-RICH_MENU_VERSION = "5"
+RICH_MENU_VERSION = "14"
 
 
 def initialize_rich_menus():
@@ -338,6 +418,7 @@ def initialize_rich_menus():
             upsert=True
         )
     else:
+        setup_default_rich_menu()
         setup_member_rich_menu()
         setup_admin_rich_menu()
         link_admin_menu()

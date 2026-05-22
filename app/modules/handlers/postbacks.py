@@ -34,6 +34,15 @@ def handle_postback(event):
         _handle_member_help(event, user_id)
         return
 
+    # --- Unregistered Postback Actions ---
+    if action == 'start_registration':
+        _handle_start_registration(event, user_id)
+        return
+
+    if action == 'default_help':
+        _handle_default_help(event, user_id)
+        return
+
     # --- Admin Postback Actions ---
     if action == 'admin_all_status':
         _handle_admin_all_status(event, user_id)
@@ -312,3 +321,35 @@ def _process_approve(event, tx_data, tx_id):
 
     line_bot_api.push_message(user_id, TextSendMessage(text=f"✅ แอดมินพี่ฝ้ายรับยอดแล้ว!\n(รอบบิลถัดไป: {thai_date_str})"))
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"บันทึกยอดเรียบร้อย (รอบบิลถัดไป: {thai_date_str})"))
+
+
+def _handle_start_registration(event, user_id):
+    """Sends the registration instruction text to unregistered users"""
+    reply_txt = (
+        "สวัสดีค่า น้องฝอยพร้อมให้บริการค้าบ 🥸☝🏼\n\n"
+        "📝 คัดลอกข้อความด้านล่างนี้แล้วพิมพ์ข้อมูลส่งกลับมาได้เลยค่ะ:\n\n"
+        "#regis\n"
+        "[ชื่อจริง นามสกุล]\n"
+        "[ชื่อเล่น]\n"
+        "[เบอร์โทร]\n"
+        "[อีเมล]\n\n"
+        "💡 ตัวอย่าง:\n"
+        "#regis\n"
+        "ชนัดดา คนชม\n"
+        "ฝ้าย\n"
+        "0812345678\n"
+        "fforfaii@gmail.com"
+    )
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_txt))
+
+
+def _handle_default_help(event, user_id):
+    """Provides information on how to register and start using the bot"""
+    help_txt = (
+        "ℹ️ วิธีการลงทะเบียนใช้งาน\n"
+        "1. กดปุ่ม 'ลงทะเบียน' บนเมนูหลัก\n"
+        "2. คัดลอกรูปแบบข้อความที่ได้รับ เติมข้อมูลของตนเองให้ถูกต้อง แล้วกดส่งข้อความ\n"
+        "3. เมื่อลงทะเบียนสำเร็จ เมนูของคุณจะเปลี่ยนเป็นเมนูสมาชิกปกติโดยอัตโนมัติ เพื่อส่งสลิปและเช็คยอดบิล\n\n"
+        "หากพบคลิกแล้วเมนูไม่เปลี่ยนแปลง หรือพบปัญหาการใช้งาน กรุณาติดต่อแอดมินโดยตรงค่ะ!"
+    )
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_txt))
