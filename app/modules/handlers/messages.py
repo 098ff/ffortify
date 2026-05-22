@@ -10,12 +10,26 @@ from app.modules.line_api import line_bot_api, handler
 from app.setup.database import (
     users_col, get_user, save_slip_image, register_user, 
     check_is_registered, save_temp_slip_id, find_users_by_nickname, 
-    check_nickname_available, create_transaction
+    check_nickname_available, create_transaction,
+    get_all_registered_users, get_transaction_slip_by_details
 )
 from app.setup.config import Config
 from app.utils.date_time import get_thai_month_year, parse_month_year, calculate_next_due_date_from_text
 from app.utils.validators import validate_slip_format
-from app.ui.flex_messages import get_main_menu_flex, create_admin_flex
+from app.ui.flex_messages import (
+    create_admin_flex, create_members_list_text, create_delete_confirm_flex
+)
+
+# ============================================================
+# TEXT MESSAGE HANDLER
+# ============================================================
+# All user-facing features are accessed ONLY via Rich Menu.
+# Text commands that remain are:
+#   - #regis     → Registration (first-time use, no Rich Menu yet)
+#   - #โอน       → Part of slip submission flow (step 2, after image)
+#   - Admin text commands triggered FROM Rich Menu prompts:
+#     #check, #members, #ดูสลิป, #ลบประวัติ, MyID, MyGroup
+# ============================================================
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
@@ -23,8 +37,8 @@ def handle_text_message(event):
     user_id = event.source.user_id
     is_group = event.source.type == "group"
 
-    # --- Admin Commands ---
-    if msg.startswith("#check") or msg in ["MyID", "MyGroup"]:
+    # --- Admin Commands (gated behind ADMIN_USER_ID) ---
+    if msg.startswith("#check") or msg in ["MyID", "MyGroup"] or msg.startswith("#members") or msg.startswith("#ดูสลิป") or msg.startswith("#ลบประวัติ"):
         if user_id != Config.ADMIN_USER_ID: return
 
         if msg.startswith("#check"):
@@ -46,6 +60,20 @@ def handle_text_message(event):
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ คำสั่งผิด! ตัวอย่าง: #check ฝ้าย"))
             return
 
+        if msg.startswith("#members"):
+            members = get_all_registered_users()
+            reply = create_members_list_text(members)
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+            return
+
+        if msg.startswith("#ดูสลิป"):
+            _process_admin_view_slip(event, msg)
+            return
+
+        if msg.startswith("#ลบประวัติ"):
+            _process_admin_delete_prompt(event, msg)
+            return
+
         if msg == "MyID":
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"User ID: {user_id}"))
             return
@@ -56,7 +84,7 @@ def handle_text_message(event):
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ส่ง ID ไปที่แชทส่วนตัวฝ้ายนะ!"))
             return
 
-    # --- Registration ---
+    # --- Registration (kept as text — first-time user has no Rich Menu yet) ---
     if msg.startswith("#regis"):
         try:
             lines = [line.strip() for line in msg.split('\n') if line.strip()]
@@ -80,10 +108,18 @@ def handle_text_message(event):
 
             register_user(user_id, fname, lname, nname, tel, email)
             
+            # Link member Rich Menu after successful registration
+            try:
+                from app.modules.rich_menu import link_member_menu
+                link_member_menu(user_id)
+            except Exception as e:
+                print(f"Rich Menu link error (non-critical): {e}")
+            
             reply = (
                 f"✅ ลงทะเบียนสำเร็จ!\n"
                 f"ยินดีต้อนรับพี่ {nname} ({email})\n\n"
-                f"น้องฝอยพร้อมดูแลค้าบ 🥸☝🏼"
+                f"น้องฝอยพร้อมดูแลค้าบ 🥸☝🏼\n"
+                f"กดเมนูด้านล่างเพื่อเริ่มใช้งานได้เลย 👇🏼"
             )
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
@@ -100,48 +136,17 @@ def handle_text_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=err_msg))
         return
 
-    # --- User Commands ---
-    if msg.startswith("น้องฝอย"):
-        if not require_registration(user_id, event.reply_token): return
-        
-        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="เมนูหลัก", contents=get_main_menu_flex()))
-        return
-
-    if ("จ่ายเงิน" in msg) or ("ชำระเงิน" in msg):
-        if not require_registration(user_id, event.reply_token): return
-
-        if is_group:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="พี่ ๆ สามารถเรียก \"น้องฝอย\" เพื่อกดปุ่มในเมนูทำรายการในแชทส่วนตัวนะคะ 🔒"))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="เข้าสู่โหมดชำระเงินคับ 🧾\n1. ส่ง \"รูปสลิป\" มาก่อนได้เลย\n2. แล้วค่อยพิมพ์แจ้งรายละเอียดในขั้นตอนถัดไป!"))
-        return
-
-    if "เช็คยอด" in msg:
-        if not require_registration(user_id, event.reply_token): return
-
-        user_data = get_user(user_id)
-        next_due = user_data.get('next_due_date') 
-        
-        if not user_data or not next_due:
-            nname = user_data.get('nickname', 'พี่ ๆ') if user_data else 'พี่ ๆ'
-            reply = f"พี่{nname}ยังไม่มีกำหนดชำระรอบถัดไปเลย มาเริ่มจ่ายรอบแรกก่อนน้า"
-        else:
-            now = datetime.now()
-            month_str = get_thai_month_year(next_due)
-            
-            if next_due > now:
-                reply = f"✅ สถานะ: ปกติ\n(ครบกำหนดชำระรอบถัดไป: 13 {month_str})"
-            else:
-                reply = f"❌ เลยกำหนดชำระแล้ว!\n(ต้องจ่ายรอบ: 13 {month_str})\nรีบเคลียร์ยอดน้า เดี๋ยวโดนตัดพรีเมี่ยม 🥺"
-        
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-        return
-
+    # --- Slip Submission (step 2 of payment flow, triggered after image upload) ---
     if msg.startswith("#โอน"):
         if is_group: return
         if not require_registration(user_id, event.reply_token): return
         
         _process_transfer_submission(event, msg, user_id)
+
+
+# ============================================================
+# IMAGE MESSAGE HANDLER (slip upload — step 1 of payment flow)
+# ============================================================
 
 @handler.add(MessageEvent, message=ImageMessage)
 def handle_image_message(event):
@@ -183,7 +188,11 @@ def handle_image_message(event):
         print(f"Error saving image: {e}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="เกิดข้อผิดพลาดในการบันทึกรูป ลองใหม่อีกครั้งนะคะ"))
 
-# --- Internal Helper ---
+
+# ============================================================
+# INTERNAL HELPERS
+# ============================================================
+
 def _process_transfer_submission(event, msg, user_id):
     try:
         data = validate_slip_format(msg)
@@ -200,15 +209,10 @@ def _process_transfer_submission(event, msg, user_id):
         current_next_due = user.get('next_due_date')
         
         if current_next_due:
-            # คำนวณว่า "ยอดใหม่" ที่ส่งมา จะมี Due Date วันไหน?
-            # เช่น ส่ง "ม.ค." (1 เดือน) -> Due Date คือ 13 ก.พ.
             input_due_date = calculate_next_due_date_from_text(data['billing'], data['months'])
             
             if input_due_date:
-                # ถ้า Due Date ของยอดใหม่ "น้อยกว่า หรือ เท่ากับ" Due Date ที่มีอยู่แล้ว
-                # แปลว่ายอดนี้เป็นอดีต หรือซ้ำกับที่จ่ายไปแล้ว
                 if input_due_date <= current_next_due:
-                    # คำนวณหาย้อนกลับไปว่าจ่ายถึงเดือนไหนแล้ว (Due Date - 1 เดือน)
                     last_paid_month = current_next_due - timedelta(days=20) 
                     paid_str = get_thai_month_year(last_paid_month)
                     
@@ -227,12 +231,14 @@ def _process_transfer_submission(event, msg, user_id):
 
         tx_id = str(uuid.uuid4())
         
+        # Pass slip_id to transaction for traceability
         create_transaction(
             tx_id, 
             user_id, 
             data['amount'], 
             data['months'], 
-            data['billing']
+            data['billing'],
+            slip_id=file_id
         )
 
         # Notify Admin
@@ -267,6 +273,109 @@ def _process_transfer_submission(event, msg, user_id):
     except Exception as e:
         print(f"System Error: {e}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ระบบขัดข้อง ลองใหม่อีกครั้งนะคะ"))
+
+
+def _process_admin_view_slip(event, msg):
+    """
+    Admin views a specific transaction's slip image
+    Format: #ดูสลิป [ชื่อเล่น] [เดือน] [ปี]
+    Example: #ดูสลิป ฝ้าย ม.ค. 68
+    """
+    try:
+        parts = msg.replace("#ดูสลิป", "").strip()
+        if not parts:
+            raise ValueError(
+                "❌ กรุณาระบุข้อมูลให้ครบ!\n\n"
+                "รูปแบบ: #ดูสลิป [ชื่อเล่น] [เดือน] [ปี]\n"
+                "ตัวอย่าง: #ดูสลิป ฝ้าย ม.ค. 68"
+            )
+
+        tokens = parts.split()
+        if len(tokens) < 3:
+            raise ValueError(
+                "❌ ข้อมูลไม่ครบ!\n\n"
+                "รูปแบบ: #ดูสลิป [ชื่อเล่น] [เดือน] [ปี]\n"
+                "ตัวอย่าง: #ดูสลิป ฝ้าย ม.ค. 68"
+            )
+
+        nickname = tokens[0]
+        month_year_text = " ".join(tokens[1:])
+
+        parsed = parse_month_year(month_year_text)
+        if not parsed:
+            raise ValueError("❌ รูปแบบเดือน/ปีไม่ถูกต้อง!\nตัวอย่าง: ม.ค. 68, ก.พ. 69")
+
+        month, year = parsed
+
+        slip, status = get_transaction_slip_by_details(nickname, month, year)
+
+        if status == "not_found_user":
+            raise ValueError(f"❌ ไม่พบสมาชิกชื่อ '{nickname}' ในระบบ")
+        elif status == "not_found_tx":
+            from app.utils.const import THAI_MONTHS
+            month_str = THAI_MONTHS[month - 1]
+            thai_year = str((year + 543) % 100)
+            raise ValueError(f"❌ ไม่พบรายการของ '{nickname}' ในเดือน {month_str} {thai_year}")
+        elif status == "not_found_slip":
+            raise ValueError(f"❌ พบรายการแต่ไม่มีรูปสลิปในระบบ")
+        elif status == "invalid_month":
+            raise ValueError("❌ เดือนที่ระบุไม่ถูกต้อง")
+
+        # Found slip — serve the image
+        base_url = os.environ.get("BASE_URL", "http://localhost:8000")
+        slip_id = str(slip["_id"])
+        image_url = f"{base_url}/slip/{slip_id}"
+
+        line_bot_api.reply_message(event.reply_token, 
+            ImageSendMessage(
+                original_content_url=image_url, 
+                preview_image_url=image_url
+            )
+        )
+
+    except ValueError as e:
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=str(e)))
+    except Exception as e:
+        print(f"Admin View Slip Error: {e}")
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ระบบขัดข้อง ลองใหม่อีกครั้งค่ะ"))
+
+
+def _process_admin_delete_prompt(event, msg):
+    """
+    Admin deletes transaction history
+    Format: #ลบประวัติ [ชื่อเล่น]
+    """
+    try:
+        parts = msg.replace("#ลบประวัติ", "").strip()
+        if not parts:
+            raise ValueError(
+                "❌ กรุณาระบุชื่อเล่นสมาชิก!\n\n"
+                "รูปแบบ: #ลบประวัติ [ชื่อเล่น]\n"
+                "ตัวอย่าง: #ลบประวัติ ฝ้าย"
+            )
+
+        nickname = parts.strip()
+        users = find_users_by_nickname(nickname)
+
+        if not users:
+            raise ValueError(f"❌ ไม่พบสมาชิกชื่อ '{nickname}' ในระบบ")
+
+        target_user = users[0]
+        target_uid = target_user.get("user_id")
+        target_nickname = target_user.get("nickname", nickname)
+
+        flex = create_delete_confirm_flex(target_nickname, target_uid)
+        line_bot_api.reply_message(
+            event.reply_token,
+            FlexSendMessage(alt_text="ยืนยันการลบข้อมูล", contents=flex)
+        )
+
+    except ValueError as e:
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=str(e)))
+    except Exception as e:
+        print(f"Admin Delete Prompt Error: {e}")
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ระบบขัดข้อง ลองใหม่อีกครั้งค่ะ"))
+
 
 def require_registration(user_id, reply_token):
     if not check_is_registered(user_id):

@@ -10,6 +10,12 @@ app.include_router(router)
 @app.on_event("startup")
 async def startup_event():
     start_scheduler()
+    # Initialize Rich Menus (version-aware: recreates if layout changed)
+    try:
+        from app.modules.rich_menu import initialize_rich_menus
+        initialize_rich_menus()
+    except Exception as e:
+        print(f"⚠️ Rich Menu init error (non-critical): {e}")
 
 
 @app.on_event("shutdown")
